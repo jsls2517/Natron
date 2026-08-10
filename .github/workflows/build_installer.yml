@@ -2,7 +2,7 @@ name: Build Installer
 
 on:
   workflow_dispatch: {}
-  push:
+  # push:  # 自动触发暂时禁用,避免消耗 CI 额度;恢复时取消注释
 
 env:
   NATRON_BUILD_WORKSPACE: 'D:/nbw'
