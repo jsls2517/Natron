@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v8'
+        default: 'v9'
 
 env:
   CI: 'True'
@@ -65,10 +65,14 @@ jobs:
 
           # 6. Install build dependencies
           #    gsed pulls in gettext-runtime; qt5 pulls in gettext — same files.
-          #    Deactivate gettext-runtime before qt5 so gettext can activate.
+          #    Let qt5 fail on the conflict, then force-activate gettext
+          #    (which deactivates gettext-runtime) and uninstall gettext-runtime
+          #    so that rev-upgrade won't try to rebuild it.
           sudo port -v -N install pkgconfig gsed gawk coreutils findutils cmake
           sudo port -v -N install clang-18 libomp
-          sudo port deactivate gettext-runtime 2>/dev/null || true
+          sudo port -v -N install qt5 || true
+          sudo port -f activate gettext || true
+          sudo port -f uninstall gettext-runtime || true
           sudo port -v -N install qt5
           sudo port -v -N install python310 py310-pip py310-pyside2
           sudo port -v -N install boost expat cairo
