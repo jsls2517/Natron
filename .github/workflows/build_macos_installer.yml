@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v4'
+        default: 'v5'
 
 env:
   CI: 'True'
@@ -53,12 +53,15 @@ jobs:
           # 3. Global variants (same as INSTALL_MACOS.md / maintainers build-macos.rst)
           echo "-x11 +no_x11 +bash_completion +no_gnome +quartz +natron" | sudo tee /opt/local/etc/macports/variants.conf
 
-          # 4. Recreate the overlay index (as the 'macports' user, so the
+          # 4. Materialize ports tracked as Portfile.orig + Portfile.patch before
+          #    indexing (as the 'macports' user: the overlay is owned by it)
+          sudo -u macports sh -c 'cd /opt/local/var/macports/local_ports/python/py-pyside2 && cp Portfile.orig Portfile && patch < Portfile.patch'
+          sudo -u macports sh -c 'cd /opt/local/var/macports/local_ports/devel/boost && cp Portfile.orig Portfile && patch < Portfile.patch'
+          sudo -u macports sh -c 'cd /opt/local/var/macports/local_ports/devel/gettext && cp Portfile.orig Portfile && patch < Portfile.patch'
+
+          # 5. Recreate the overlay index (as the 'macports' user, so the
           #    generated PortIndex lives in the writable overlay)
           (cd /opt/local/var/macports/local_ports && sudo -u macports portindex)
-
-          # 5. py-pyside2 is tracked as Portfile.orig + Portfile.patch; materialize the live Portfile
-          (cd /opt/local/var/macports/local_ports/python/py-pyside2 && cp Portfile.orig Portfile && patch < Portfile.patch)
 
           # 6. Install build dependencies
           sudo port -v -N install pkgconfig gsed gawk coreutils findutils cmake
