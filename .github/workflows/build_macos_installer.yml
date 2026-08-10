@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v1'
+        default: 'v2'
 
 env:
   CI: 'True'
@@ -46,7 +46,10 @@ jobs:
           # 3. Global variants (same as INSTALL_MACOS.md / maintainers build-macos.rst)
           echo "-x11 +no_x11 +bash_completion +no_gnome +quartz +natron" | sudo tee /opt/local/etc/macports/variants.conf
 
-          # 4. Recreate the overlay index
+          # 4. Make the overlay writable by the port build user (MacPorts compiles
+          #    file:// sources in-tree as the 'macports' user), then recreate the
+          #    overlay index
+          chmod -R a+rwX "$GITHUB_WORKSPACE/tools/MacPorts"
           (cd "$GITHUB_WORKSPACE/tools/MacPorts" && portindex)
 
           # 5. py-pyside2 is tracked as Portfile.orig + Portfile.patch; materialize the live Portfile
