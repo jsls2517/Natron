@@ -36,12 +36,12 @@ if {${port_latest}} {
 
 github.tarball_from     archive
 
-+patchfiles-append oiio-2.0.8-invalidatespec.patch
-+patchfiles-append oiio-2.0.8-atomic-load.patch
-+patchfiles-append oiio-2.3.20-strnlen.patch
-+patchfiles-append oiio-2.4.6-sysutil.patch
-+patchfiles-append oiio-2.4.6-filesystem.patch
-+patchfiles-append   patch-2.4.5-cmake-disable-wall-werror.diff
+patchfiles-append oiio-2.0.8-invalidatespec.patch
+patchfiles-append oiio-2.0.8-atomic-load.patch
+patchfiles-append oiio-2.3.20-strnlen.patch
+patchfiles-append oiio-2.4.6-sysutil.patch
+patchfiles-append oiio-2.4.6-filesystem.patch
+patchfiles-append   patch-2.4.5-cmake-disable-wall-werror.diff
 
 if {${port_latest}} {
     depends_lib-append  port:imath \
