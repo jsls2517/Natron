@@ -70,7 +70,7 @@ jobs:
           sudo port -v -N install pkgconfig gsed gawk coreutils findutils cmake
           sudo port -v -N install clang-18 libomp
           sudo port -v -N install qt5
-          sudo port -v -N install python310 py310-pip py310-shiboken2 py310-pyside2
+          sudo port -v -N install python310 py310-pip py310-pyside2
           sudo port -v -N install boost expat cairo
           sudo port -v -N install opencolorio -quartz -python27 -python310
           sudo port -v -N install x264 libvpx +highbitdepth
