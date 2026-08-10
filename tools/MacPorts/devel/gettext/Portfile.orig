@@ -18,12 +18,6 @@ master_sites            gnu
 platforms               darwin freebsd linux
 use_parallel_build      yes
 
-# Declare that the full gettext replaces the runtime-only subport, so that
-# MacPorts handles the file conflicts automatically (gsed depends on
-# gettext-runtime; qt5 depends on gettext — without this, activation of the
-# second one always fails).
-replaces                gettext-runtime
-
 description             GNU internationalization (i18n) and localization (l10n) library
 
 long_description        ${name} is the ${description}, used for writing multilingual programs.

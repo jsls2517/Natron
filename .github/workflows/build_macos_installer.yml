@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v6'
+        default: 'v8'
 
 env:
   CI: 'True'
@@ -64,11 +64,11 @@ jobs:
           (cd /opt/local/var/macports/local_ports && sudo -u macports portindex)
 
           # 6. Install build dependencies
-          #    (gettext declares 'replaces gettext-runtime' in the overlay,
-          #    so the file conflict between gsed's gettext-runtime and qt5's
-          #    gettext is handled automatically by MacPorts)
+          #    gsed pulls in gettext-runtime; qt5 pulls in gettext — same files.
+          #    Deactivate gettext-runtime before qt5 so gettext can activate.
           sudo port -v -N install pkgconfig gsed gawk coreutils findutils cmake
           sudo port -v -N install clang-18 libomp
+          sudo port deactivate gettext-runtime 2>/dev/null || true
           sudo port -v -N install qt5
           sudo port -v -N install python310 py310-pip py310-pyside2
           sudo port -v -N install boost expat cairo
