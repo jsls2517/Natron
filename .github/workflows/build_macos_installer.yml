@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v9'
+        default: 'v10'
 
 env:
   CI: 'True'
@@ -57,22 +57,20 @@ jobs:
           #    indexing (as the 'macports' user: the overlay is owned by it)
           sudo -u macports sh -c 'cd /opt/local/var/macports/local_ports/python/py-pyside2 && cp Portfile.orig Portfile && patch < Portfile.patch'
           sudo -u macports sh -c 'cd /opt/local/var/macports/local_ports/devel/boost && cp Portfile.orig Portfile && patch < Portfile.patch'
-          sudo -u macports sh -c 'cd /opt/local/var/macports/local_ports/devel/gettext && cp Portfile.orig Portfile && patch < Portfile.patch'
 
           # 5. Recreate the overlay index (as the 'macports' user, so the
           #    generated PortIndex lives in the writable overlay)
           (cd /opt/local/var/macports/local_ports && sudo -u macports portindex)
 
           # 6. Install build dependencies
-          #    gsed pulls in gettext-runtime; qt5 pulls in gettext — same files.
-          #    Let qt5 fail on the conflict, then force-activate gettext
-          #    (which deactivates gettext-runtime) and uninstall gettext-runtime
-          #    so that rev-upgrade won't try to rebuild it.
+          #    NOTE: Do NOT materialize the overlay's devel/gettext — the overlay
+          #    provides gettext 0.19.5 (a monolithic port that installs both tools
+          #    AND runtime binaries), which conflicts with the upstream gettext-runtime.
+          #    The upstream MacPorts devel/gettext (v1.0) uses subports: gettext-runtime
+          #    provides the runtime binaries, gettext provides only the tools — they
+          #    coexist without file conflicts.
           sudo port -v -N install pkgconfig gsed gawk coreutils findutils cmake
           sudo port -v -N install clang-18 libomp
-          sudo port -v -N install qt5 || true
-          sudo port -f activate gettext || true
-          sudo port -f uninstall gettext-runtime || true
           sudo port -v -N install qt5
           sudo port -v -N install python310 py310-pip py310-pyside2
           sudo port -v -N install boost expat cairo
