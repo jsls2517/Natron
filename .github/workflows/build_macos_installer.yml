@@ -64,16 +64,10 @@ jobs:
           (cd /opt/local/var/macports/local_ports && sudo -u macports portindex)
 
           # 6. Install build dependencies
-          #    gsed depends on gettext-runtime; qt5 depends on gettext.
-          #    They share files and conflict. Fix: install gsed first (pulls
-          #    in gettext-runtime), then force-activate the full gettext port
-          #    (deactivates gettext-runtime), and uninstall gettext-runtime so
-          #    that rev-upgrade triggered by later port installs won't try to
-          #    rebuild it.
+          #    (gettext declares 'replaces gettext-runtime' in the overlay,
+          #    so the file conflict between gsed's gettext-runtime and qt5's
+          #    gettext is handled automatically by MacPorts)
           sudo port -v -N install pkgconfig gsed gawk coreutils findutils cmake
-          sudo port -v -N install gettext || true
-          sudo port -f activate gettext
-          sudo port -f uninstall gettext-runtime || true
           sudo port -v -N install clang-18 libomp
           sudo port -v -N install qt5
           sudo port -v -N install python310 py310-pip py310-shiboken2 py310-pyside2
