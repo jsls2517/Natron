@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v10'
+        default: 'v11'
 
 env:
   CI: 'True'
@@ -55,8 +55,11 @@ jobs:
 
           # 4. Materialize ports tracked as Portfile.orig + Portfile.patch before
           #    indexing (as the 'macports' user: the overlay is owned by it)
-          sudo -u macports sh -c 'cd /opt/local/var/macports/local_ports/python/py-pyside2 && cp Portfile.orig Portfile && patch < Portfile.patch'
           sudo -u macports sh -c 'cd /opt/local/var/macports/local_ports/devel/boost && cp Portfile.orig Portfile && patch < Portfile.patch'
+
+          # NOTE: Do NOT materialize the overlay's python/py-pyside2 — the overlay
+          # provides pyside2 5.15.12 (old), upstream has 5.15.19 which fixes
+          # numpy include-path detection for shiboken2 on arm64 macOS.
 
           # 5. Recreate the overlay index (as the 'macports' user, so the
           #    generated PortIndex lives in the writable overlay)
