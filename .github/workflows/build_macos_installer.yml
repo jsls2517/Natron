@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v31'
+        default: 'v32'
 
 env:
   CI: 'True'
@@ -92,6 +92,13 @@ jobs:
 
           # 7. Make sure python3 resolves to the MacPorts 3.10 (not the system python)
           sudo port select --set python3 python310
+
+          # 7b. Ensure sphinx-build is in PATH (for documentation generation)
+          sudo port select --set sphinx py310-sphinx
+          if [ -f /opt/local/bin/sphinx-build-3.10 ] && [ ! -e /opt/local/bin/sphinx-build ]; then
+            sudo ln -s sphinx-build-3.10 /opt/local/bin/sphinx-build
+          fi
+          export PATH="/opt/local/bin:$PATH"
 
           # 8. DMG packaging tool (checked early by launchBuildMain.sh)
           sudo python3 -m pip install --break-system-packages dmgbuild
