@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v14'
+        default: 'v15'
 
 env:
   CI: 'True'
@@ -93,7 +93,7 @@ jobs:
           sudo port select --set python3 python310
 
           # 8. DMG packaging tool (checked early by launchBuildMain.sh)
-          sudo python3 -m pip install dmgbuild
+          sudo python3 -m pip install --break-system-packages dmgbuild
 
           # 9. Free disk space before the long Natron build
           sudo port clean --all installed
