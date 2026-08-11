@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v24'
+        default: 'v25'
 
 env:
   CI: 'True'
@@ -118,7 +118,21 @@ jobs:
           sudo mkdir -p "$OSMESA_DIR/include/GL" "$OSMESA_DIR/lib"
           # Stub GL/osmesa.h (OSMesa main header)
           if [ ! -f "$OSMESA_DIR/include/GL/osmesa.h" ]; then
-            echo '/* Stub: Mesa osmesa.h for macOS CI */' | sudo tee "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#ifndef _OSMESA_H_' | sudo tee "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#define _OSMESA_H_' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#ifdef __cplusplus' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo 'extern "C" {' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#endif' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo 'typedef struct osmesa_context *OSMesaContext;' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#define OSMESA_Y_UP 0' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#define OSMESA_ROW_LENGTH 0x0001' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo 'OSMesaContext OSMesaCreateContext(unsigned int format, OSMesaContext sharelist);' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo 'int OSMesaMakeCurrent(OSMesaContext ctx, void *buffer, unsigned int type, unsigned int width, unsigned int height);' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo 'OSMesaContext OSMesaGetCurrentContext(void);' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#ifdef __cplusplus' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '}' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#endif' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo '#endif' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
           fi
           # Stub GL/glext.h (Mesa GL extension header)
           if [ ! -f "$OSMESA_DIR/include/GL/glext.h" ]; then
