@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v17'
+        default: 'v18'
 
 env:
   CI: 'True'
@@ -103,7 +103,14 @@ jobs:
             sudo ln -s shiboken2 "$SHIBOKEN_GEN_DIR/shiboken2-3.10"
           fi
 
-          # 10. Free disk space before the long Natron build
+          # 10. Create /opt/local/llvm symlink so common.sh sets LLVM_PATH correctly
+          #     (clang-18 port installs to /opt/local/libexec/llvm-18/, but build-plugins.sh
+          #     expects /opt/local/llvm/bin/llvm-config)
+          if [ ! -d /opt/local/llvm ] && [ -d /opt/local/libexec/llvm-18 ]; then
+            sudo ln -s /opt/local/libexec/llvm-18 /opt/local/llvm
+          fi
+
+          # 11. Free disk space before the long Natron build
           sudo port clean --all installed
 
       - name: Build and package (launchBuildMain.sh)
