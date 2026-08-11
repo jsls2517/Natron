@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v25'
+        default: 'v26'
 
 env:
   CI: 'True'
@@ -127,7 +127,9 @@ jobs:
             echo '#define OSMESA_Y_UP 0' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
             echo '#define OSMESA_ROW_LENGTH 0x0001' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
             echo 'OSMesaContext OSMesaCreateContext(unsigned int format, OSMesaContext sharelist);' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo 'void OSMesaDestroyContext(OSMesaContext ctx);' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
             echo 'int OSMesaMakeCurrent(OSMesaContext ctx, void *buffer, unsigned int type, unsigned int width, unsigned int height);' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+            echo 'void OSMesaPixelStore(int pname, int value);' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
             echo 'OSMesaContext OSMesaGetCurrentContext(void);' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
             echo '#ifdef __cplusplus' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
             echo '}' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
