@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v23'
+        default: 'v24'
 
 env:
   CI: 'True'
@@ -111,14 +111,18 @@ jobs:
           fi
 
           # 11. Create OSMesa stubs for openfx-misc Shadertoy plugin
-          #     build-plugins.sh needs GL/gl_mangle.h, GL/glu_mangle.h, GL/osmesa.h
-          #     and libOSMesa/libMangledGLU.
+          #     build-plugins.sh needs GL/osmesa.h, GL/gl_mangle.h, GL/glu_mangle.h,
+          #     GL/glext.h, GL/gl.h, GL/glu.h and libOSMesa/libMangledGLU.
           #     macOS doesn't ship these; create stubs so compilation & linking succeed.
           OSMESA_DIR="/opt/local/osmesa"
           sudo mkdir -p "$OSMESA_DIR/include/GL" "$OSMESA_DIR/lib"
           # Stub GL/osmesa.h (OSMesa main header)
           if [ ! -f "$OSMESA_DIR/include/GL/osmesa.h" ]; then
             echo '/* Stub: Mesa osmesa.h for macOS CI */' | sudo tee "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
+          fi
+          # Stub GL/glext.h (Mesa GL extension header)
+          if [ ! -f "$OSMESA_DIR/include/GL/glext.h" ]; then
+            echo '/* Stub: Mesa glext.h for macOS CI */' | sudo tee "$OSMESA_DIR/include/GL/glext.h" > /dev/null
           fi
           # Stub GL/gl_mangle.h (Mesa OpenGL name-mangling header)
           if [ ! -f "$OSMESA_DIR/include/GL/gl_mangle.h" ]; then
