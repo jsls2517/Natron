@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v28'
+        default: 'v29'
 
 env:
   CI: 'True'
@@ -115,6 +115,19 @@ jobs:
           #     expects /opt/local/llvm/bin/llvm-config)
           if [ ! -d /opt/local/llvm ] && [ -d /opt/local/libexec/llvm-18 ]; then
             sudo ln -s /opt/local/libexec/llvm-18 /opt/local/llvm
+          fi
+
+          # 10b. Fix missing /opt/local/Library/lib symlink for macdeployqt
+          #     macdeployqt expects to find Python framework via this link
+          if [ ! -e /opt/local/Library/lib ] && [ -d /opt/local/Library/Frameworks ]; then
+            sudo ln -s Frameworks /opt/local/Library/lib
+          fi
+
+          # 10c. Fix macOS version detection for macOS 15.x (kernel version 24)
+          #     build-OSX-installer.sh doesn't know version 24, so we patch it
+          BUILD_INSTALLER="/Users/runner/work/Natron/Natron/tools/jenkins/build-OSX-installer.sh"
+          if grep -q "unknown macOS version: \${macosx}" "$BUILD_INSTALLER"; then
+            sudo sed -i.bak 's/23) echo "macOS 14.x    Sonoma";;/23) echo "macOS 14.x    Sonoma" ;; 24) echo "macOS 15.x    Sequoia" ;;/' "$BUILD_INSTALLER"
           fi
 
           # 11. Create OSMesa stubs for openfx-misc Shadertoy plugin
