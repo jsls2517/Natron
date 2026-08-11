@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v26'
+        default: 'v27'
 
 env:
   CI: 'True'
@@ -156,10 +156,10 @@ jobs:
           if [ ! -f "$OSMESA_DIR/include/GL/glu.h" ]; then
             echo '#include <OpenGL/glu.h>' | sudo tee "$OSMESA_DIR/include/GL/glu.h" > /dev/null
           fi
-          # Empty archive stubs for -lOSMesa and -lMangledGLU
+          # Dummy archive stubs for -lOSMesa and -lMangledGLU
           # (macOS ar requires at least one member, unlike GNU ar)
           DUMMY_C=$(mktemp /tmp/dummy_XXXXXX.c)
-          echo 'int __osmesa_stub(void){return 0;}' > "$DUMMY_C"
+          printf '%s\n' '#include <stddef.h>' 'typedef struct osmesa_context *OSMesaContext;' 'static OSMesaContext g_osmesa_ctx = NULL;' 'OSMesaContext OSMesaCreateContext(unsigned int format, OSMesaContext sharelist) { return NULL; }' 'void OSMesaDestroyContext(OSMesaContext ctx) {}' 'int OSMesaMakeCurrent(OSMesaContext ctx, void *buffer, unsigned int type, unsigned int width, unsigned int height) { return 0; }' 'void OSMesaPixelStore(int pname, int value) {}' 'OSMesaContext OSMesaGetCurrentContext(void) { return g_osmesa_ctx; }' > "$DUMMY_C"
           cc -c "$DUMMY_C" -o /tmp/dummy_osmesa.o
           if [ ! -f "$OSMESA_DIR/lib/libOSMesa.a" ]; then
             sudo ar rcs "$OSMESA_DIR/lib/libOSMesa.a" /tmp/dummy_osmesa.o
