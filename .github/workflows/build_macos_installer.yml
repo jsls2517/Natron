@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v27'
+        default: 'v28'
 
 env:
   CI: 'True'
@@ -101,6 +101,13 @@ jobs:
           SHIBOKEN_GEN_DIR="/opt/local/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/shiboken2_generator"
           if [ -d "$SHIBOKEN_GEN_DIR" ] && [ ! -f "$SHIBOKEN_GEN_DIR/shiboken2-3.10" ]; then
             sudo ln -s shiboken2 "$SHIBOKEN_GEN_DIR/shiboken2-3.10"
+          fi
+          # 9b. Ensure shiboken2 is in PATH
+          if [ -f /opt/local/bin/shiboken2 ]; then
+            export PATH="/opt/local/bin:$PATH"
+          elif [ -f /opt/local/Library/Frameworks/Python.framework/Versions/3.10/bin/shiboken2 ]; then
+            sudo ln -s /opt/local/Library/Frameworks/Python.framework/Versions/3.10/bin/shiboken2 /opt/local/bin/shiboken2
+            export PATH="/opt/local/bin:$PATH"
           fi
 
           # 10. Create /opt/local/llvm symlink so common.sh sets LLVM_PATH correctly
