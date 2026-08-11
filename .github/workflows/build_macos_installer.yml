@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v16'
+        default: 'v17'
 
 env:
   CI: 'True'
@@ -97,7 +97,13 @@ jobs:
           # dmgbuild installs to Python's scripts dir, not /opt/local/bin — link it
           sudo ln -sf /opt/local/Library/Frameworks/Python.framework/Versions/3.10/bin/dmgbuild /opt/local/bin/dmgbuild
 
-          # 9. Free disk space before the long Natron build
+          # 9. Fix broken shiboken2 symlink (known MacPorts py310-pyside2 issue)
+          SHIBOKEN_GEN_DIR="/opt/local/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/shiboken2_generator"
+          if [ -d "$SHIBOKEN_GEN_DIR" ] && [ ! -f "$SHIBOKEN_GEN_DIR/shiboken2-3.10" ]; then
+            sudo ln -s shiboken2 "$SHIBOKEN_GEN_DIR/shiboken2-3.10"
+          fi
+
+          # 10. Free disk space before the long Natron build
           sudo port clean --all installed
 
       - name: Build and package (launchBuildMain.sh)
