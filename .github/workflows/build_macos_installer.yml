@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v19'
+        default: 'v20'
 
 env:
   CI: 'True'
@@ -87,7 +87,6 @@ jobs:
           sudo port -v -N install librsvg -quartz
           sudo port -v -N install ImageMagick +natron -x11
           sudo port -v -N install poppler librevenge libcdr-0.1 libzip sox fftw-3
-          sudo port -v -N install mesa
           sudo sed -i -e 's/Zstd::Zstd/zstd/' /opt/local/lib/pkgconfig/libzip.pc
 
           # 7. Make sure python3 resolves to the MacPorts 3.10 (not the system python)
@@ -111,11 +110,29 @@ jobs:
             sudo ln -s /opt/local/libexec/llvm-18 /opt/local/llvm
           fi
 
-          # 11. Create /opt/local/osmesa symlink for OSMesa (openfx-misc Shadertoy plugin)
-          #     build-plugins.sh sets OSMESA_PATH=/opt/local/osmesa but Mesa installs
-          #     headers to /opt/local/include/GL/ and libs to /opt/local/lib/.
-          if [ ! -d /opt/local/osmesa ] && [ -d /opt/local/include/GL ]; then
-            sudo ln -s /opt/local /opt/local/osmesa
+          # 11. Create OSMesa stubs for openfx-misc Shadertoy plugin
+          #     build-plugins.sh needs GL/gl_mangle.h and libOSMesa/libMangledGLU.
+          #     macOS doesn't ship these; create stubs so compilation & linking succeed.
+          OSMESA_DIR="/opt/local/osmesa"
+          sudo mkdir -p "$OSMESA_DIR/include/GL" "$OSMESA_DIR/lib"
+          # Stub GL/gl_mangle.h (Mesa name-mangling header — empty is fine for CI)
+          if [ ! -f "$OSMESA_DIR/include/GL/gl_mangle.h" ]; then
+            echo '/* Stub: Mesa gl_mangle.h for macOS CI */' | sudo tee "$OSMESA_DIR/include/GL/gl_mangle.h" > /dev/null
+          fi
+          # Stub GL/gl.h — redirect to system OpenGL
+          if [ ! -f "$OSMESA_DIR/include/GL/gl.h" ]; then
+            echo '#include <OpenGL/gl.h>' | sudo tee "$OSMESA_DIR/include/GL/gl.h" > /dev/null
+          fi
+          # Stub GL/glu.h — redirect to system OpenGL (deprecated but may be needed)
+          if [ ! -f "$OSMESA_DIR/include/GL/glu.h" ]; then
+            echo '#include <OpenGL/glu.h>' | sudo tee "$OSMESA_DIR/include/GL/glu.h" > /dev/null
+          fi
+          # Empty archive stubs for -lOSMesa and -lMangledGLU
+          if [ ! -f "$OSMESA_DIR/lib/libOSMesa.a" ]; then
+            sudo ar rcs "$OSMESA_DIR/lib/libOSMesa.a"
+          fi
+          if [ ! -f "$OSMESA_DIR/lib/libMangledGLU.a" ]; then
+            sudo ar rcs "$OSMESA_DIR/lib/libMangledGLU.a"
           fi
 
           # 12. Free disk space before the long Natron build
