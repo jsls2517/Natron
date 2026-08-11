@@ -6,7 +6,7 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v30'
+        default: 'v31'
 
 env:
   CI: 'True'
@@ -83,7 +83,7 @@ jobs:
           sudo port -v -N install ffmpeg +gpl2 +highbitdepth +natronmini
           sudo port -v -N install libraw +gpl2 openexr
           sudo port -v -N install openimageio +natron
-          sudo port -v -N install py310-sphinx py310-sphinx-rtd-theme
+          sudo port -v -N install py310-sphinx
           sudo port -v -N install seexpr211 seexpr
           sudo port -v -N install librsvg -quartz
           sudo port -v -N install ImageMagick +natron -x11
