@@ -13,60 +13,57 @@ env:
 
 jobs:
   macos-installer:
-    name: macOS Installer (Intel x86_64)
-    runs-on: macos-13-intel
+    name: macOS Installer (Intel x86_64 via Rosetta)
+    runs-on: macos-15
     timeout-minutes: 720
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4.1.1
 
-      - name: Cache MacPorts installation
+      - name: Cache x86_64 MacPorts
         id: cache-macports
         uses: actions/cache@v4
         with:
-          path: /opt/local
-          key: macports-intel-${{ github.event.inputs.macports_cache_key || 'v1' }}
+          path: /opt/local-x86_64
+          key: macports-x86_64-rosetta-${{ github.event.inputs.macports_cache_key || 'v1' }}
 
-      # Only runs when the cache misses; the whole /opt/local tree (MacPorts +
-      # compiled ports) is cached by the actions/cache step above.
-      - name: Install MacPorts and dependencies
+      - name: Install x86_64 MacPorts and dependencies
         if: steps.cache-macports.outputs.cache-hit != 'true'
         run: |
           set -eux
 
-          # 1. Install MacPorts (official pkg for macOS 13 "Ventura")
-          curl -L -o /tmp/MacPorts.pkg "https://github.com/macports/macports-base/releases/download/v2.12.5/MacPorts-2.12.5-13-Ventura.pkg"
-          sudo installer -pkg /tmp/MacPorts.pkg -target /
+          # Ensure Rosetta is installed
+          if ! /usr/bin/pgrep -q oahd; then
+            echo "Installing Rosetta..."
+            sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+          fi
+          echo "Rosetta installed: $(arch -x86_64 uname -m)"
 
-          export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
+          # Install x86_64 MacPorts under separate prefix
+          # Use the x86_64 pkg for macOS 15 Sequoia
+          curl -L -o /tmp/MacPorts-x86_64.pkg "https://github.com/macports/macports-base/releases/download/v2.12.5/MacPorts-2.12.5-15-Sequoia.pkg"
+          sudo installer -pkg /tmp/MacPorts-x86_64.pkg -target / --prefix /opt/local-x86_64
 
-          # 2. Copy the Natron custom-ports overlay to a location the port build
-          #    user ('macports') can read and write. GitHub Actions checks out the
-          #    repo under /Users/runner (mode 700), which the 'macports' user
-          #    cannot traverse, so the in-tree path cannot be used. Register the
-          #    copy before the default source.
-          sudo mkdir -p /opt/local/var/macports/local_ports
-          sudo cp -R "$GITHUB_WORKSPACE/tools/MacPorts/." /opt/local/var/macports/local_ports/
-          sudo chown -R macports:macports /opt/local/var/macports/local_ports
-          sudo sed -i '' '1s#^#file:///opt/local/var/macports/local_ports\n#' /opt/local/etc/macports/sources.conf
+          export PATH="/opt/local-x86_64/bin:/opt/local-x86_64/sbin:$PATH"
 
-          # 3. Global variants (same as INSTALL_MACOS.md / maintainers build-macos.rst)
-          echo "-x11 +no_x11 +bash_completion +no_gnome +quartz +natron" | sudo tee /opt/local/etc/macports/variants.conf
+          # Copy the Natron custom-ports overlay
+          sudo mkdir -p /opt/local-x86_64/var/macports/local_ports
+          sudo cp -R "$GITHUB_WORKSPACE/tools/MacPorts/." /opt/local-x86_64/var/macports/local_ports/
+          sudo chown -R macports:macports /opt/local-x86_64/var/macports/local_ports
+          sudo sed -i '' '1s#^#file:///opt/local-x86_64/var/macports/local_ports\n#' /opt/local-x86_64/etc/macports/sources.conf
 
-          # 4. Materialize overlay ports for x86_64 (different from arm64!)
-          #    On x86_64, the old overlay ports work:
-          #    - devel/gettext 0.19.5: works on x86_64
-          #    - python/py-pyside2 5.15.12: works on x86_64
-          #    - devel/boost 1.59.0: works on x86_64
-          (cd /opt/local/var/macports/local_ports/devel/gettext && sudo -u macports portindex 2>/dev/null || true)
-          (cd /opt/local/var/macports/local_ports/python/py-pyside2 && sudo -u macports portindex 2>/dev/null || true)
-          (cd /opt/local/var/macports/local_ports/devel/boost && sudo -u macports portindex 2>/dev/null || true)
+          # Global variants
+          echo "-x11 +no_x11 +bash_completion +no_gnome +quartz +natron" | sudo tee /opt/local-x86_64/etc/macports/variants.conf
 
-          # 5. Recreate the overlay index (as the 'macports' user, so the
-          #    generated PortIndex lives in the writable overlay)
-          (cd /opt/local/var/macports/local_ports && sudo -u macports portindex)
+          # Materialize overlay ports for x86_64
+          (cd /opt/local-x86_64/var/macports/local_ports/devel/gettext && sudo -u macports portindex 2>/dev/null || true)
+          (cd /opt/local-x86_64/var/macports/local_ports/python/py-pyside2 && sudo -u macports portindex 2>/dev/null || true)
+          (cd /opt/local-x86_64/var/macports/local_ports/devel/boost && sudo -u macports portindex 2>/dev/null || true)
 
-          # 6. Install build dependencies
+          # Recreate the overlay index
+          (cd /opt/local-x86_64/var/macports/local_ports && sudo -u macports portindex)
+
+          # Install build dependencies
           sudo port -v -N install pkgconfig gsed gawk coreutils findutils cmake
           sudo port -v -N install clang-18 libomp
           sudo port -v -N install qt5
@@ -82,67 +79,52 @@ jobs:
           sudo port -v -N install librsvg -quartz
           sudo port -v -N install ImageMagick +natron -x11
           sudo port -v -N install poppler librevenge libcdr-0.1 libzip sox fftw-3
-          sudo sed -i -e 's/Zstd::Zstd/zstd/' /opt/local/lib/pkgconfig/libzip.pc
+          sudo sed -i -e 's/Zstd::Zstd/zstd/' /opt/local-x86_64/lib/pkgconfig/libzip.pc
 
-          # 7. Make sure python3 resolves to the MacPorts 3.10 (not the system python)
+          # Make sure python3 resolves to the MacPorts 3.10
           sudo port select --set python3 python310
 
-          # 7b. Ensure sphinx-build is in PATH (for documentation generation)
+          # Ensure sphinx-build is in PATH
           sudo port select --set sphinx py310-sphinx
-          if [ -f /opt/local/bin/sphinx-build-3.10 ] && [ ! -e /opt/local/bin/sphinx-build ]; then
-            sudo ln -s sphinx-build-3.10 /opt/local/bin/sphinx-build
+          if [ -f /opt/local-x86_64/bin/sphinx-build-3.10 ] && [ ! -e /opt/local-x86_64/bin/sphinx-build ]; then
+            sudo ln -s sphinx-build-3.10 /opt/local-x86_64/bin/sphinx-build
           fi
-          export PATH="/opt/local/bin:$PATH"
 
-          # 8. DMG packaging tool (checked early by launchBuildMain.sh)
+          # DMG packaging tool
           sudo python3 -m pip install --break-system-packages dmgbuild
-          # dmgbuild installs to Python's scripts dir, not /opt/local/bin — link it
-          sudo ln -sf /opt/local/Library/Frameworks/Python.framework/Versions/3.10/bin/dmgbuild /opt/local/bin/dmgbuild
+          sudo ln -sf /opt/local-x86_64/Library/Frameworks/Python.framework/Versions/3.10/bin/dmgbuild /opt/local-x86_64/bin/dmgbuild
 
-          # 8b. Install sphinx_rtd_theme for documentation generation
-          #     MacPorts doesn't have py310-sphinx-rtd-theme, use pip instead
+          # Install sphinx_rtd_theme
           sudo python3 -m pip install --break-system-packages sphinx_rtd-theme
 
-          # 9. Fix broken shiboken2 symlink (known MacPorts py310-pyside2 issue)
-          SHIBOKEN_GEN_DIR="/opt/local/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/shiboken2_generator"
+          # Fix broken shiboken2 symlink
+          SHIBOKEN_GEN_DIR="/opt/local-x86_64/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/shiboken2_generator"
           if [ -d "$SHIBOKEN_GEN_DIR" ] && [ ! -f "$SHIBOKEN_GEN_DIR/shiboken2-3.10" ]; then
             sudo ln -s shiboken2 "$SHIBOKEN_GEN_DIR/shiboken2-3.10"
           fi
-          # 9b. Ensure shiboken2 is in PATH
-          if [ -f /opt/local/bin/shiboken2 ]; then
-            export PATH="/opt/local/bin:$PATH"
-          elif [ -f /opt/local/Library/Frameworks/Python.framework/Versions/3.10/bin/shiboken2 ]; then
-            sudo ln -s /opt/local/Library/Frameworks/Python.framework/Versions/3.10/bin/shiboken2 /opt/local/bin/shiboken2
-            export PATH="/opt/local/bin:$PATH"
+          if [ -f /opt/local-x86_64/Library/Frameworks/Python.framework/Versions/3.10/bin/shiboken2 ]; then
+            sudo ln -s /opt/local-x86_64/Library/Frameworks/Python.framework/Versions/3.10/bin/shiboken2 /opt/local-x86_64/bin/shiboken2
           fi
 
-          # 10. Create /opt/local/llvm symlink so common.sh sets LLVM_PATH correctly
-          #     (clang-18 port installs to /opt/local/libexec/llvm-18/, but build-plugins.sh
-          #     expects /opt/local/llvm/bin/llvm-config)
-          if [ ! -d /opt/local/llvm ] && [ -d /opt/local/libexec/llvm-18 ]; then
-            sudo ln -s /opt/local/libexec/llvm-18 /opt/local/llvm
+          # Create llvm symlink
+          if [ ! -d /opt/local-x86_64/llvm ] && [ -d /opt/local-x86_64/libexec/llvm-18 ]; then
+            sudo ln -s /opt/local-x86_64/libexec/llvm-18 /opt/local-x86_64/llvm
           fi
 
-          # 10b. Fix missing /opt/local/Library/lib symlink for macdeployqt
-          #     macdeployqt expects to find Python framework via this link
-          if [ ! -e /opt/local/Library/lib ] && [ -d /opt/local/Library/Frameworks ]; then
-            sudo ln -s Frameworks /opt/local/Library/lib
+          # Fix missing Library/lib symlink
+          if [ ! -e /opt/local-x86_64/Library/lib ] && [ -d /opt/local-x86_64/Library/Frameworks ]; then
+            sudo ln -s Frameworks /opt/local-x86_64/Library/lib
           fi
 
-          # 10c. macOS version detection — macOS 13 Ventura is kernel version 22
-          #     build-OSX-installer.sh should already know this, but verify
+          # Fix macOS version detection for macOS 15.x
           BUILD_INSTALLER="/Users/runner/work/Natron/Natron/tools/jenkins/build-OSX-installer.sh"
-          if ! grep -q '22) echo "macOS 13.x    Ventura"' "$BUILD_INSTALLER" 2>/dev/null; then
-            echo "WARNING: macOS 13 Ventura not in build-OSX-installer.sh case statement"
+          if grep -q "unknown macOS version: \${macosx}" "$BUILD_INSTALLER"; then
+            sudo sed -i.bak 's/23) echo "macOS 14.x    Sonoma";;/23) echo "macOS 14.x    Sonoma" ;; 24) echo "macOS 15.x    Sequoia" ;;/' "$BUILD_INSTALLER"
           fi
 
-          # 11. Create OSMesa stubs for openfx-misc Shadertoy plugin
-          #     build-plugins.sh needs GL/osmesa.h, GL/gl_mangle.h, GL/glu_mangle.h,
-          #     GL/glext.h, GL/gl.h, GL/glu.h and libOSMesa/libMangledGLU.
-          #     macOS doesn't ship these; create stubs so compilation & linking succeed.
-          OSMESA_DIR="/opt/local/osmesa"
+          # Create OSMesa stubs
+          OSMESA_DIR="/opt/local-x86_64/osmesa"
           sudo mkdir -p "$OSMESA_DIR/include/GL" "$OSMESA_DIR/lib"
-          # Stub GL/osmesa.h (OSMesa main header)
           if [ ! -f "$OSMESA_DIR/include/GL/osmesa.h" ]; then
             echo '#ifndef _OSMESA_H_' | sudo tee "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
             echo '#define _OSMESA_H_' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
@@ -162,28 +144,17 @@ jobs:
             echo '#endif' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
             echo '#endif' | sudo tee -a "$OSMESA_DIR/include/GL/osmesa.h" > /dev/null
           fi
-          # Stub GL/glext.h (Mesa GL extension header)
-          if [ ! -f "$OSMESA_DIR/include/GL/glext.h" ]; then
-            echo '/* Stub: Mesa glext.h for macOS CI */' | sudo tee "$OSMESA_DIR/include/GL/glext.h" > /dev/null
-          fi
-          # Stub GL/gl_mangle.h (Mesa OpenGL name-mangling header)
-          if [ ! -f "$OSMESA_DIR/include/GL/gl_mangle.h" ]; then
-            echo '/* Stub: Mesa gl_mangle.h for macOS CI */' | sudo tee "$OSMESA_DIR/include/GL/gl_mangle.h" > /dev/null
-          fi
-          # Stub GL/glu_mangle.h (Mesa GLU name-mangling header)
-          if [ ! -f "$OSMESA_DIR/include/GL/glu_mangle.h" ]; then
-            echo '/* Stub: Mesa glu_mangle.h for macOS CI */' | sudo tee "$OSMESA_DIR/include/GL/glu_mangle.h" > /dev/null
-          fi
-          # Stub GL/gl.h — redirect to system OpenGL
+          for h in glext.h gl_mangle.h glu_mangle.h; do
+            if [ ! -f "$OSMESA_DIR/include/GL/$h" ]; then
+              echo "/* Stub: Mesa $h for macOS CI */" | sudo tee "$OSMESA_DIR/include/GL/$h" > /dev/null
+            fi
+          done
           if [ ! -f "$OSMESA_DIR/include/GL/gl.h" ]; then
             echo '#include <OpenGL/gl.h>' | sudo tee "$OSMESA_DIR/include/GL/gl.h" > /dev/null
           fi
-          # Stub GL/glu.h — redirect to system OpenGL (deprecated but may be needed)
           if [ ! -f "$OSMESA_DIR/include/GL/glu.h" ]; then
             echo '#include <OpenGL/glu.h>' | sudo tee "$OSMESA_DIR/include/GL/glu.h" > /dev/null
           fi
-          # Dummy archive stubs for -lOSMesa and -lMangledGLU
-          # (macOS ar requires at least one member, unlike GNU ar)
           DUMMY_C=$(mktemp /tmp/dummy_XXXXXX.c)
           printf '%s\n' '#include <stddef.h>' 'typedef struct osmesa_context *OSMesaContext;' 'static OSMesaContext g_osmesa_ctx = NULL;' 'OSMesaContext OSMesaCreateContext(unsigned int format, OSMesaContext sharelist) { return NULL; }' 'void OSMesaDestroyContext(OSMesaContext ctx) {}' 'int OSMesaMakeCurrent(OSMesaContext ctx, void *buffer, unsigned int type, unsigned int width, unsigned int height) { return 0; }' 'void OSMesaPixelStore(int pname, int value) {}' 'OSMesaContext OSMesaGetCurrentContext(void) { return g_osmesa_ctx; }' > "$DUMMY_C"
           cc -c "$DUMMY_C" -o /tmp/dummy_osmesa.o
@@ -195,7 +166,7 @@ jobs:
           fi
           rm -f "$DUMMY_C" /tmp/dummy_osmesa.o
 
-          # 12. Free disk space before the long Natron build
+          # Free disk space
           sudo port clean --all installed
 
       - name: Build and package (launchBuildMain.sh)
@@ -203,7 +174,7 @@ jobs:
           git config --global user.email "ci@users.noreply.github.com"
           git config --global user.name "CI"
           cd tools/jenkins
-          export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
+          export PATH="/opt/local-x86_64/bin:/opt/local-x86_64/sbin:$PATH"
           WORKSPACE="$GITHUB_WORKSPACE" \
           BUILD_NAME=natron \
           BUILD_NUMBER=1 \
