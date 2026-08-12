@@ -1,4 +1,4 @@
-name: Build macOS Installer (arm64)
+name: Build macOS Installer (Intel)
 
 on:
   workflow_dispatch:
@@ -6,15 +6,15 @@ on:
       macports_cache_key:
         description: 'MacPorts 依赖缓存 key。升级依赖或缓存异常时 bump 一次(如 v2)以强制重新编译。'
         required: false
-        default: 'v33'
+        default: 'v1'
 
 env:
   CI: 'True'
 
 jobs:
   macos-installer:
-    name: macOS Installer (arm64)
-    runs-on: macos-15
+    name: macOS Installer (Intel x86_64)
+    runs-on: macos-13-intel
     timeout-minutes: 720
     steps:
       - name: Checkout branch
@@ -25,7 +25,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/local
-          key: macports-arm64-${{ github.event.inputs.macports_cache_key || 'v1' }}
+          key: macports-intel-${{ github.event.inputs.macports_cache_key || 'v1' }}
 
       # Only runs when the cache misses; the whole /opt/local tree (MacPorts +
       # compiled ports) is cached by the actions/cache step above.
@@ -34,8 +34,8 @@ jobs:
         run: |
           set -eux
 
-          # 1. Install MacPorts (official pkg for macOS 15 "Sequoia")
-          curl -L -o /tmp/MacPorts.pkg "https://github.com/macports/macports-base/releases/download/v2.12.5/MacPorts-2.12.5-15-Sequoia.pkg"
+          # 1. Install MacPorts (official pkg for macOS 13 "Ventura")
+          curl -L -o /tmp/MacPorts.pkg "https://github.com/macports/macports-base/releases/download/v2.12.5/MacPorts-2.12.5-13-Ventura.pkg"
           sudo installer -pkg /tmp/MacPorts.pkg -target /
 
           export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
@@ -53,26 +53,20 @@ jobs:
           # 3. Global variants (same as INSTALL_MACOS.md / maintainers build-macos.rst)
           echo "-x11 +no_x11 +bash_completion +no_gnome +quartz +natron" | sudo tee /opt/local/etc/macports/variants.conf
 
-          # 4. Materialize ports tracked as Portfile.orig + Portfile.patch before
-          #    indexing (as the 'macports' user: the overlay is owned by it)
-
-          # NOTE: Do NOT materialize overlay ports that are too old for arm64:
-          #   - devel/gettext 0.19.5: monolithic, conflicts with upstream gettext-runtime
-          #   - python/py-pyside2 5.15.12: numpy header detection broken on arm64
-          #   - devel/boost 1.59.0: only supports ppc/x86, errors on arm64
-          # All three are provided by upstream MacPorts with arm64 support.
+          # 4. Materialize overlay ports for x86_64 (different from arm64!)
+          #    On x86_64, the old overlay ports work:
+          #    - devel/gettext 0.19.5: works on x86_64
+          #    - python/py-pyside2 5.15.12: works on x86_64
+          #    - devel/boost 1.59.0: works on x86_64
+          (cd /opt/local/var/macports/local_ports/devel/gettext && sudo -u macports portindex 2>/dev/null || true)
+          (cd /opt/local/var/macports/local_ports/python/py-pyside2 && sudo -u macports portindex 2>/dev/null || true)
+          (cd /opt/local/var/macports/local_ports/devel/boost && sudo -u macports portindex 2>/dev/null || true)
 
           # 5. Recreate the overlay index (as the 'macports' user, so the
           #    generated PortIndex lives in the writable overlay)
           (cd /opt/local/var/macports/local_ports && sudo -u macports portindex)
 
           # 6. Install build dependencies
-          #    NOTE: Do NOT materialize the overlay's devel/gettext — the overlay
-          #    provides gettext 0.19.5 (a monolithic port that installs both tools
-          #    AND runtime binaries), which conflicts with the upstream gettext-runtime.
-          #    The upstream MacPorts devel/gettext (v1.0) uses subports: gettext-runtime
-          #    provides the runtime binaries, gettext provides only the tools — they
-          #    coexist without file conflicts.
           sudo port -v -N install pkgconfig gsed gawk coreutils findutils cmake
           sudo port -v -N install clang-18 libomp
           sudo port -v -N install qt5
@@ -135,11 +129,11 @@ jobs:
             sudo ln -s Frameworks /opt/local/Library/lib
           fi
 
-          # 10c. Fix macOS version detection for macOS 15.x (kernel version 24)
-          #     build-OSX-installer.sh doesn't know version 24, so we patch it
+          # 10c. macOS version detection — macOS 13 Ventura is kernel version 22
+          #     build-OSX-installer.sh should already know this, but verify
           BUILD_INSTALLER="/Users/runner/work/Natron/Natron/tools/jenkins/build-OSX-installer.sh"
-          if grep -q "unknown macOS version: \${macosx}" "$BUILD_INSTALLER"; then
-            sudo sed -i.bak 's/23) echo "macOS 14.x    Sonoma";;/23) echo "macOS 14.x    Sonoma" ;; 24) echo "macOS 15.x    Sequoia" ;;/' "$BUILD_INSTALLER"
+          if ! grep -q '22) echo "macOS 13.x    Ventura"' "$BUILD_INSTALLER" 2>/dev/null; then
+            echo "WARNING: macOS 13 Ventura not in build-OSX-installer.sh case statement"
           fi
 
           # 11. Create OSMesa stubs for openfx-misc Shadertoy plugin
@@ -230,6 +224,6 @@ jobs:
       - name: Upload DMG
         uses: actions/upload-artifact@v4.3.1
         with:
-          name: Natron-macOS-arm64
+          name: Natron-macOS-intel
           path: ${{ github.workspace }}/builds_archive/natron/1/*.dmg
           if-no-files-found: error
